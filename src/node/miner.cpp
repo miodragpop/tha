@@ -720,6 +720,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
             setCoins.clear();
             chainTipForCoins = chainman.ActiveChain().Tip()->GetBlockHash();
             wallet.SelectCoinsForStaking(setCoins);
+            beginningTime = 0;
             LogPrint(BCLog::COINSTAKE, "Selecting coins for staking completed in %15dms\n", Ticks<std::chrono::milliseconds>(SteadyClock::now() - start_time));
         } else {
             LogPrint(BCLog::COINSTAKE, "Chain tip unchanged since previous coin selection, using previously selected coins...\n");
@@ -766,9 +767,16 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                     s_cpu_loading = 100.0;
                 }
 
-                if ( newTime > beginningTime )
+                if ( beginningTime == 0 )
                 {
                     beginningTime = newTime;
+                    start_time = GetTime<std::chrono::milliseconds>().count();
+                    break;
+                } else if (beginningTime > (newTime + 15)) {
+                    //LogPrintf("ThreadStakeMiner(): %d is too far in future from %d. Sleeping...\n", beginningTime, newTime);
+                    UninterruptibleSleep(std::chrono::milliseconds{500});
+                } else {
+                    beginningTime++;
                     start_time = GetTime<std::chrono::milliseconds>().count();
                     break;
                 }
